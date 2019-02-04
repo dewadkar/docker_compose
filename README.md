@@ -3,16 +3,6 @@ Docker compose base template for Node, Python, Postgresql, Mongodb
 
 Application configured to run completly in docker using compose functionality.
 
-Requirement:
-   Folder structure:
-         source/ <br/>  
-             docker_compose/<br/>
-                    docker-compose.yml
-             proj_node_consumer/*      # All source code including node_module/ User interface module
-             proj_name Redirector/*    # Security Layer for access redirect
-             proj_node_api/*           # Backend API module
-             proj_node_acl/*           # Access control module
-             proj_python/*             # Django based REST API code
 
 **Requirement:**
    *Folder structure:*
