@@ -1,0 +1,15 @@
+
+#Create a file with name .env and add this content
+
+MONGODB_EXPOSED_PORT=27018
+MONGODB_ADMIN_USER=admin
+MONGODB_ADMIN_PASS=password
+MONGODB_APPLICATION_DATABASE=dbname
+MONGODB_APPLICATION_USER=username
+MONGODB_APPLICATION_PASS=user_password
+POSTGRES_EXPOSED_PORT=5433
+POSTGRES_DB=db_name
+POSTGRES_USER=pg_user_name
+POSTGRES_PASS=pg_user_password
+
+
