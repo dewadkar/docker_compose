@@ -1,0 +1,244 @@
+version: '3.4'
+services:
+  
+  proj_name Redirector (HTTP -> HTTPS)
+  proj_nameredirector:
+    container_name: proj_nameredirector
+    image: node:carbon
+    restart: always
+    ports:
+      - "80:80"
+    deploy:
+      replicas: 2
+      resources:
+        limits:
+          cpus: "0.1"
+          memory: 50M
+      update_config:
+        parallelism: 2
+        delay: 10s
+        order: stop-first
+      restart_policy:
+        condition: on-failure
+    working_dir: /usr/src
+    volumes:
+      - ../proj_name_redirector:/usr/src
+    depends_on:
+      - proj_namepostgres
+      - proj_namepatientapi
+      - proj_nameconsumer
+    command: [ "npm", "start" ]
+    networks:
+      - webnet
+
+  # Fix Mongo Container permissions
+  fix-mongodb-permissions:
+    image: 'bitnami/mongodb:latest'
+    user: root
+    command: chown -R 1001:1001 /bitnami
+    volumes:
+      - ../../db/mongo/data:/bitnami
+    networks:
+      - webnet
+
+  
+  # ATR MongoDB
+  proj_namemongo:
+    # Give it a name 
+    container_name: proj_namemongo
+    image: bitnami/mongodb:latest
+    # Restart always
+    restart: always
+    # Expose a MongoDB port to connect to, defined by the MONGODB_EXPOSED_PORT environment variable
+    # and map this port to the 27017 internal port which is what MongoDB uses
+    ports:
+      - "${MONGODB_EXPOSED_PORT}:27017"
+    deploy:
+      replicas: 2
+      resources:
+        limits:
+          cpus: "0.1"
+          memory: 50M
+      update_config:
+        parallelism: 2
+        delay: 10s
+        order: stop-first
+      restart_policy:
+        condition: on-failure
+    # Passing environment variables from the host to the container. 
+    # Our container expects the following variables (as explained here: https://hub.docker.com/r/alexpunct/mongo/)
+    environment:
+      # MONGODB_ADMIN_USER: $MONGODB_ADMIN_USER
+      # MONGODB_ADMIN_PASS: $MONGODB_ADMIN_PASS
+      MONGODB_DATABASE: $MONGODB_APPLICATION_DATABASE
+      MONGODB_USERNAME: $MONGODB_APPLICATION_USER
+      MONGODB_PASSWORD: $MONGODB_APPLICATION_PASS
+    # We use mongostorage data volume and we will use the /bitnami path for the database inside the container
+    volumes: 
+      - ../../db/mongo/data:/bitnami
+    depends_on:
+      - fix-mongodb-permissions
+    networks:
+      - webnet
+    
+
+  # ATR PostgreSQL
+  proj_namepostgres:
+    container_name: proj_namepostgres
+    image: postgres:9.5
+    restart: always
+    ports:
+      - "${POSTGRES_EXPOSED_PORT}:5432"
+    deploy:
+      replicas: 2
+      resources:
+        limits:
+          cpus: "0.1"
+          memory: 50M
+      update_config:
+        parallelism: 2
+        delay: 10s
+        order: stop-first
+      restart_policy:
+        condition: on-failure
+    environment:
+      POSTGRES_DB: $POSTGRES_DB
+      POSTGRES_USER: $POSTGRES_USER
+      POSTGRES_PASSWORD: $POSTGRES_PASS
+    volumes: 
+      - ../../db/pg/sql:/docker-entrypoint-initdb.d/
+      - ../../db/pg/data:/var/lib/postgresql/data
+    networks:
+      - webnet
+
+
+  proj_name Consumer (English)
+  proj_nameconsumer:
+    container_name: proj_nameconsumer
+    image: node:carbon
+    restart: always
+    ports:
+      # - "443:443"
+      - "80:80"
+    deploy:
+      replicas: 2
+      resources:
+        limits:
+          cpus: "0.1"
+          memory: 50M
+      update_config:
+        parallelism: 2
+        delay: 10s
+        order: stop-first
+      restart_policy:
+        condition: on-failure
+    working_dir: /usr/src
+    volumes:
+      - ../proj_name_consumer:/usr/src
+      - ../../logs/consumer:/usr/src/logs
+      # - /etc/ssl/private:/etc/ssl/private
+    depends_on:
+      - proj_namepostgres
+      - proj_namemongo
+      - proj_namepatientapi
+      - proj_nameacl
+      - proj_nameengine
+    command: [ "npm", "start" ]
+    networks:
+      - webnet
+
+
+  #proj_name Patient API
+  proj_namepatientapi:
+    container_name: proj_namepatientapi
+    image: node:carbon
+    restart: always
+    ports:
+      - "4000:4000"
+    deploy:
+      replicas: 2
+      resources:
+        limits:
+          cpus: "0.1"
+          memory: 50M
+      update_config:
+        parallelism: 2
+        delay: 10s
+        order: stop-first
+      restart_policy:
+        condition: on-failure
+    working_dir: /usr/src
+    volumes:
+     - ../proj_name_patientapi:/usr/src
+     - ../../logs/patientapi:/usr/src/logs
+    depends_on:
+      - proj_namemongo
+    command: [ "npm", "start" ]
+    networks:
+      - webnet
+
+
+  # proj_name ACL
+  proj_nameacl:
+    container_name: proj_nameacl
+    image: node:carbon
+    restart: always
+    ports:
+      - "5000:5000"
+    deploy:
+      # replicas: 2
+      resources:
+        limits:
+          cpus: "0.1"
+          memory: 50M
+      update_config:
+        parallelism: 2
+        delay: 10s
+        order: stop-first
+      restart_policy:
+        condition: on-failure
+    working_dir: /usr/src
+    volumes:
+      - ../proj_name_acl:/usr/src
+      - ../../logs/acl:/usr/src/logs
+    depends_on:
+      - proj_namepostgres
+      - proj_namemongo
+    command: [ "npm", "start" ]
+    networks:
+      - webnet
+
+
+  #ATR Treatment Recommendation Engine
+  proj_nameengine:
+    build:
+      context: proj_name-engine
+      dockerfile: Dockerfile
+    container_name: proj_nameengine
+    image: proj_name_engine:1.0
+    restart: always
+    ports:
+      - "8010:8010"
+    deploy:
+      replicas: 2
+      resources:
+        limits:
+          cpus: "0.1"
+          memory: 50M
+      update_config:
+        parallelism: 2
+        delay: 10s
+        order: stop-first
+      restart_policy:
+        condition: on-failure
+    working_dir: /usr/src/app
+    volumes:
+     - ../proj_name_engine:/usr/src/app
+     - ../../logs/engine:/usr/src/app/log
+    command: [ "python3", "manage.py", "runserver", "0.0.0.0:8010" ]
+    networks:
+      - webnet
+
+networks:
+  webnet:
+  
